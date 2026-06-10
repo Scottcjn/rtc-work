@@ -1,0 +1,6 @@
+# rtc-work agent manifest — copy to agent.toml and edit.
+[agent]
+wallet = "RTCyouraddresshere000000000000000000000000"
+skills = ["code", "research"]   # RIP-302 job categories you'll take
+min_reward = 1.0                 # ignore jobs below this RTC reward
+node = "https://rustchain.org"
