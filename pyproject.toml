@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rtc-work"
-version = "0.1.0"
+version = "0.1.1"
 description = "Demand-side client for the RustChain RIP-302 agent job market: discover, claim, and deliver jobs."
 readme = "README.md"
 license = { text = "MIT" }

@@ -8,4 +8,4 @@ Flat routing only (no DAG recursion). Claim/deliver do not move the worker's
 money — escrow is the poster's and releases on poster `/accept`.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
