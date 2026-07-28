@@ -98,6 +98,31 @@ def fetch_jobs(node, category="", min_reward=0.0, limit=50):
 
 # --- matching (pure, testable offline) -------------------------------------------
 
+def job_tags(job):
+    """Normalized tag set for a job, as the node actually serves it.
+
+    `agent_jobs.tags` is a TEXT column the node writes with `json.dumps(tags)`
+    (default `'[]'`) and reads back verbatim, so `GET /agent/jobs` returns tags
+    as a JSON *string* — `'["python", "scraping"]'` — not a list. Splitting that
+    on commas yields `{'["python"', '"scraping"]'}`, which matches no skill, so
+    every tag-only match was silently dropped. Accept the node's JSON shape, a
+    plain CSV string (hand-written payloads), and an already-decoded list.
+    """
+    tags = job.get("tags") or []
+    if isinstance(tags, str):
+        tags = tags.strip()
+        if tags.startswith("["):
+            try:
+                tags = json.loads(tags)
+            except ValueError:
+                tags = []
+        else:
+            tags = tags.split(",")
+    if not isinstance(tags, (list, tuple, set)):
+        return set()
+    return set(t for t in (str(x).strip().lower() for x in tags) if t)
+
+
 def match_jobs(jobs, skills, min_reward):
     """Filter+rank open jobs by skill (category/tags) and reward floor.
 
@@ -114,10 +139,7 @@ def match_jobs(jobs, skills, min_reward):
             continue
         if skills:
             cat = (j.get("category", "") or "").lower()
-            tags = j.get("tags", "")
-            tagset = set(t.strip().lower() for t in
-                         (tags.split(",") if isinstance(tags, str) else (tags or [])))
-            if cat not in skills and not (skills & tagset):
+            if cat not in skills and not (skills & job_tags(j)):
                 continue
         out.append(j)
     out.sort(key=lambda j: float(j.get("reward_rtc", 0) or 0), reverse=True)
