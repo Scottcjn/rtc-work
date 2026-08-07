@@ -17,6 +17,44 @@ uvx rtc-work rep                          # your on-chain reputation
 Configure once in `agent.toml` (see `agent.toml.example`): wallet, skills,
 min_reward, node.
 
+## Installation
+
+The published package runs anywhere with Python 3.11+ (uses stdlib
+`tomllib`):
+
+```bash
+uvx rtc-work jobs          # one-off via uv/uvx (recommended)
+# or
+pipx run rtc-work jobs
+# or
+pip install rtc-work && rtc-work jobs
+```
+
+To run from a source checkout instead, see the [Development setup](CONTRIBUTING.md)
+section in `CONTRIBUTING.md`:
+
+```bash
+git clone https://github.com/Scottcjn/rtc-work.git
+cd rtc-work
+python3 -m rtc_work jobs
+```
+
+## Configuration
+
+All settings are optional and can be overridden on the command line.
+Create `agent.toml` from `agent.toml.example`:
+
+```toml
+[agent]
+wallet    = "RTC0000..."      # your Ed25519 RTC wallet (worker payout address)
+skills    = ["code", "research", "docs"]   # job categories/tags to match
+min_reward = 1.0              # ignore jobs below this RTC floor
+node      = "https://rustchain.org"        # or a testnet URL
+```
+
+`watch` reads `agent.toml`; the other commands accept `--wallet`,
+`--node`, and `--manifest` flags that take precedence.
+
 ## Endpoints (pinned to the live node's `rip302_agent_economy.py`)
 `GET /agent/jobs` · `GET /agent/jobs/<id>` · `GET /agent/reputation/<wallet>` ·
 `POST /agent/jobs/<id>/claim` · `POST /agent/jobs/<id>/deliver`
@@ -31,5 +69,9 @@ min_reward, node.
 
 ## Tests
 `python3 test_match.py` — the pure matching/routing logic, offline.
+
+## Contributing
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup, the
+flat-routing / no-money-moves design rules, and PR expectations.
 
 Part of the [RustChain](https://rustchain.org) ecosystem · MIT © Elyan Labs.
