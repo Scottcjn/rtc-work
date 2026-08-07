@@ -69,11 +69,24 @@ def load_manifest(path="agent.toml"):
 # --- http ------------------------------------------------------------------------
 
 def _get(node, path):
+    """Issue a GET to ``node + path`` and return the decoded JSON body.
+
+    Uses a 20s timeout. Raises whatever ``urllib.request.urlopen`` raises
+    (timeouts, connection errors, ``HTTPError``); callers handle or report.
+    """
     with urllib.request.urlopen(node.rstrip("/") + path, timeout=20) as r:
         return json.loads(r.read().decode())
 
 
 def _post(node, path, payload):
+    """POST ``payload`` (JSON) to ``node + path``; return ``(ok, body)``.
+
+    ``ok`` is True for any 2xx and False for ``HTTPError`` or other
+    exceptions. On an ``HTTPError`` the response body is parsed as JSON
+    when possible so the caller can read the node's error message; on any
+    other exception a minimal ``{"error": str(e)}`` dict is returned. This
+    keeps claim/deliver command paths from crashing on a node-side rejection.
+    """
     req = urllib.request.Request(
         node.rstrip("/") + path, data=json.dumps(payload).encode(),
         headers={"Content-Type": "application/json"}, method="POST")
@@ -88,6 +101,13 @@ def _post(node, path, payload):
 
 
 def fetch_jobs(node, category="", min_reward=0.0, limit=50):
+    """Fetch the open-job list from the node, filtered by category/reward.
+
+    Builds the ``GET /agent/jobs`` query string (status=open, optional
+    category, min_reward floor, result limit) and returns the ``jobs``
+    array from the response. Falls back to the raw response when the node
+    returns a bare list instead of a ``{"jobs": [...]}`` envelope.
+    """
     q = {"status": "open", "min_reward": min_reward, "limit": limit}
     if category:
         q["category"] = category
@@ -125,6 +145,12 @@ def match_jobs(jobs, skills, min_reward):
 
 
 def _confirm(prompt, args):
+    """Return True if the user confirms ``prompt``, honoring ``args.yes``.
+
+    When ``--yes`` is set, confirmation is skipped (returns True). Otherwise
+    an interactive ``[y/N]`` prompt is shown; ``EOFError``/``KeyboardInterrupt``
+    (e.g. non-interactive runs) count as a refusal.
+    """
     if getattr(args, "yes", False):
         return True
     try:
@@ -136,6 +162,7 @@ def _confirm(prompt, args):
 # --- commands --------------------------------------------------------------------
 
 def cmd_jobs(args):
+    """List open jobs from the node (read-only). Returns 0."""
     node = args.node or NODE_URL
     jobs = fetch_jobs(node, args.category or "", args.min_reward or 0.0)
     if not jobs:
@@ -148,6 +175,13 @@ def cmd_jobs(args):
 
 
 def cmd_watch(args):
+    """Poll the node for skill/reward-matching jobs until interrupted.
+
+    Read-only unless ``--auto`` is set, in which case matching jobs are
+    auto-claimed (still confirming unless ``--yes``). ``--once`` exits after
+    a single poll; otherwise it loops on ``--interval`` seconds. Network
+    errors during a poll are reported but do not stop the loop.
+    """
     m = load_manifest(args.manifest)
     node = args.node or m.get("node") or NODE_URL
     skills = (args.skills.split(",") if args.skills else m.get("skills", []))
@@ -178,6 +212,7 @@ def cmd_watch(args):
 
 
 def cmd_claim(args):
+    """Reserve a job (no money moves). Requires a wallet from args/manifest."""
     node = args.node or NODE_URL
     wallet = args.wallet or load_manifest(args.manifest).get("wallet", "")
     if not wallet:
@@ -191,6 +226,7 @@ def cmd_claim(args):
 
 
 def cmd_deliver(args):
+    """Submit a deliverable for a claimed job (url and/or summary)."""
     node = args.node or NODE_URL
     wallet = args.wallet or load_manifest(args.manifest).get("wallet", "")
     if not (args.url or args.summary):
@@ -206,6 +242,7 @@ def cmd_deliver(args):
 
 
 def cmd_rep(args):
+    """Print the on-chain reputation for the agent's wallet (read-only)."""
     node = args.node or NODE_URL
     wallet = args.wallet or load_manifest(args.manifest).get("wallet", "")
     if not wallet:
@@ -215,6 +252,11 @@ def cmd_rep(args):
 
 
 def main(argv=None):
+    """Build the parser, dispatch the selected subcommand, return its exit code.
+
+    Returns the command handler's exit code (0 success / 1 user or node
+    error). The default ``args.func(args)`` return is normalized to 0.
+    """
     p = argparse.ArgumentParser(prog="rtc-work", description="RIP-302 agent job-market client")
     p.add_argument("--node", default=None, help=f"node URL (default {NODE_URL})")
     p.add_argument("--manifest", default="agent.toml", help="agent manifest path")
